@@ -1,24 +1,12 @@
-/*
- * Copyright 2019 The TensorFlow Authors. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *       http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+
 
 package org.tensorflow.lite.examples.detection;
 
 import android.Manifest;
 import android.app.Fragment;
 import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.hardware.Camera;
 import android.hardware.camera2.CameraAccessException;
@@ -31,6 +19,7 @@ import android.media.ImageReader;
 import android.media.ImageReader.OnImageAvailableListener;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Trace;
@@ -38,6 +27,9 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.appcompat.widget.Toolbar;
+
+import android.speech.tts.TextToSpeech;
+import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
 import android.view.View;
@@ -48,23 +40,41 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
+//import com.google.firebase.firestore.FirebaseFirestore;
+//import com.google.firebase.firestore.FirebaseFirestore;
+
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+
 import org.tensorflow.lite.examples.detection.env.ImageUtils;
 import org.tensorflow.lite.examples.detection.env.Logger;
+import org.w3c.dom.Text;
 
 public abstract class CameraActivity extends AppCompatActivity
     implements OnImageAvailableListener,
         Camera.PreviewCallback,
         CompoundButton.OnCheckedChangeListener,
-        View.OnClickListener {
+        View.OnClickListener,
+        TextToSpeech.OnInitListener {
   private static final Logger LOGGER = new Logger();
-
+//  FirebaseFirestore db = FirebaseFirestore.getInstance();
   private static final int PERMISSIONS_REQUEST = 1;
 
   private static final String PERMISSION_CAMERA = Manifest.permission.CAMERA;
+  private TextView count;
   protected int previewWidth = 0;
   protected int previewHeight = 0;
+  int sum40sec=0;
+  private int MY_DATA_CHECK_CODE = 0;
+  private TextToSpeech myTTS;
   private boolean debug = false;
   private Handler handler;
   private HandlerThread handlerThread;
@@ -76,6 +86,7 @@ public abstract class CameraActivity extends AppCompatActivity
   private Runnable postInferenceCallback;
   private Runnable imageConverter;
 
+
   private LinearLayout bottomSheetLayout;
   private LinearLayout gestureLayout;
   private BottomSheetBehavior<LinearLayout> sheetBehavior;
@@ -86,14 +97,33 @@ public abstract class CameraActivity extends AppCompatActivity
   private SwitchCompat apiSwitchCompat;
   private TextView threadsTextView;
 
+  private void speakWords(String speech) {
+//implement TTS here
+    myTTS.speak(speech, TextToSpeech.QUEUE_FLUSH, null);
+
+  }
+
   @Override
   protected void onCreate(final Bundle savedInstanceState) {
+
+//    Intent checkTTSIntent = new Intent();
+//    checkTTSIntent.setAction(TextToSpeech.Engine.ACTION_CHECK_TTS_DATA);
+//    startActivityForResult(checkTTSIntent, MY_DATA_CHECK_CODE);
+
     LOGGER.d("onCreate " + this);
     super.onCreate(null);
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
     setContentView(R.layout.tfe_od_activity_camera);
+
+
     Toolbar toolbar = findViewById(R.id.toolbar);
+
+    String words = "Pedestrian density is high please slow down.";
+
+//    speakWords(words);
+
+   count =findViewById(R.id.count);
     setSupportActionBar(toolbar);
     getSupportActionBar().setDisplayShowTitleEnabled(false);
 
@@ -167,7 +197,85 @@ public abstract class CameraActivity extends AppCompatActivity
 
     plusImageView.setOnClickListener(this);
     minusImageView.setOnClickListener(this);
+    ArrayList<String> ccc=new ArrayList<String>();
+
+//    Intent checkTTSIntent = new Intent();
+//    checkTTSIntent.setAction(TextToSpeech.Engine.ACTION_CHECK_TTS_DATA);
+//    startActivityForResult(checkTTSIntent, MY_DATA_CHECK_CODE);
+
+
+    new CountDownTimer(20000, 1000) {
+
+      public void onTick(long millisUntilFinished) {
+
+        //here you can have your logic to set text to edittext
+
+
+        SharedPreferences sharedPreferences = getSharedPreferences("myKey", MODE_PRIVATE);
+
+
+        int value = sharedPreferences.getInt("value",0);
+
+
+        Log.d("pppp", String.valueOf(value));
+        String x=String.valueOf(value);
+        Log.d("pppp1",x);
+
+//    value=1;
+        ccc.add(x);
+
+        sum40sec=sum40sec+value;
+
+        if(x.equals("0"))
+        {
+          x="2";
+        }
+
+//        count.setText("Person Count: "+x);
+//        if(value > 7)
+//        {
+//
+//          speakWords("Pedestrian density is high please slow down");
+//        }
+
+
+      }
+
+      public void onFinish() {
+//        count.setText(ccc);
+        Log.d("summm", String.valueOf(sum40sec));
+      Log.d("arraylist",ccc.toString());
+      ccc.clear();
+        Log.d("arraylist1223",ccc.toString());
+
+//        Map<String, Object> city = new HashMap<>();
+//        city.put("personCount", String.valueOf(sum40sec));
+////
+////
+//        db.collection("Sum").document("i4Wh7AMjCb8f45SVGyC1")
+//                .set(city)
+//                .addOnSuccessListener(new OnSuccessListener<Void>() {
+//                  @Override
+//                  public void onSuccess(Void aVoid) {
+//                    Log.d("TAG", "DocumentSnapshot successfully written!");
+//                  }
+//                })
+//                .addOnFailureListener(new OnFailureListener() {
+//                  @Override
+//                  public void onFailure(@NonNull Exception e) {
+//                    Log.w("TAG", "Error writing document", e);
+//                  }
+//                });
+
+
+      }
+
+    }.start();
+
+
   }
+//
+
 
   protected int[] getRgbBytes() {
     imageConverter.run();
@@ -289,6 +397,27 @@ public abstract class CameraActivity extends AppCompatActivity
       return;
     }
     Trace.endSection();
+  }
+
+  public void onInit(int initStatus) {
+    if (initStatus == TextToSpeech.SUCCESS) {
+      myTTS.setLanguage(Locale.US);
+    }
+    else if (initStatus == TextToSpeech.ERROR) {
+      Toast.makeText(this, "Sorry! Text To Speech failed...", Toast.LENGTH_LONG).show();
+    }
+  }
+  protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+    if (requestCode == MY_DATA_CHECK_CODE) {
+      if (resultCode == TextToSpeech.Engine.CHECK_VOICE_DATA_PASS) {
+        myTTS = new TextToSpeech(this, this);
+      }
+      else {
+        Intent installTTSIntent = new Intent();
+        installTTSIntent.setAction(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA);
+        startActivity(installTTSIntent);
+      }
+    }
   }
 
   @Override

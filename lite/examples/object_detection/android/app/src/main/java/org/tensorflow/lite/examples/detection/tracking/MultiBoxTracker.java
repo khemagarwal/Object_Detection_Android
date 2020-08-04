@@ -1,21 +1,10 @@
-/* Copyright 2019 The TensorFlow Authors. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-==============================================================================*/
 
 package org.tensorflow.lite.examples.detection.tracking;
 
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
@@ -24,8 +13,13 @@ import android.graphics.Paint.Cap;
 import android.graphics.Paint.Join;
 import android.graphics.Paint.Style;
 import android.graphics.RectF;
+import android.os.CountDownTimer;
+import android.os.Handler;
 import android.text.TextUtils;
+import android.util.DisplayMetrics;
+import android.util.Log;
 import android.util.Pair;
+import android.util.Range;
 import android.util.TypedValue;
 import java.util.LinkedList;
 import java.util.List;
@@ -37,6 +31,9 @@ import org.tensorflow.lite.examples.detection.tflite.Classifier.Recognition;
 
 /** A tracker that handles non-max suppression and matches existing objects to new detections. */
 public class MultiBoxTracker {
+  int screenWidth=0,screenHeight=0;
+  boolean personCenter=false,personLeft=false,personRight=false;
+  int personcount=0,carcount=0,buscount=0;
   private static final float TEXT_SIZE_DIP = 18;
   private static final float MIN_SIZE = 16.0f;
   private static final int[] COLORS = {
@@ -61,6 +58,10 @@ public class MultiBoxTracker {
   private final Queue<Integer> availableColors = new LinkedList<Integer>();
   private final List<TrackedRecognition> trackedObjects = new LinkedList<TrackedRecognition>();
   private final Paint boxPaint = new Paint();
+  private final Paint boxPaint1 = new Paint();
+  public Integer flag = 0;
+  boolean isGreater=false;
+  final Handler ha=new Handler();
   private final float textSizePx;
   private final BorderedText borderedText;
   private Matrix frameToCanvasMatrix;
@@ -115,6 +116,14 @@ public class MultiBoxTracker {
     logger.i("Processing %d results from %d", results.size(), timestamp);
     processResults(results);
   }
+  public  void getScreenWidth() {
+     screenWidth= Resources.getSystem().getDisplayMetrics().widthPixels;
+  }
+
+  public  void getScreenHeight() {
+    screenHeight= Resources.getSystem().getDisplayMetrics().heightPixels;
+  }
+
 
   private Matrix getFrameToCanvasMatrix() {
     return frameToCanvasMatrix;
@@ -134,14 +143,168 @@ public class MultiBoxTracker {
             (int) (multiplier * (rotated ? frameWidth : frameHeight)),
             sensorOrientation,
             false);
+
+
     for (final TrackedRecognition recognition : trackedObjects) {
       final RectF trackedPos = new RectF(recognition.location);
 
       getFrameToCanvasMatrix().mapRect(trackedPos);
-      boxPaint.setColor(recognition.color);
+      boxPaint.setColor(Color.rgb(255,0,0));
+      boxPaint1.setColor(Color.rgb(0,255,0));
 
       float cornerSize = Math.min(trackedPos.width(), trackedPos.height()) / 8.0f;
-      canvas.drawRoundRect(trackedPos, cornerSize, cornerSize, boxPaint);
+      Log.d("boundingpoint", String.valueOf(trackedPos.width()));
+//      canvas.drawLine(trackedPos.left,trackedPos.top,trackedPos.bottom,trackedPos.right,boxPaint);
+
+      // left,top = ymin,xmin
+//      canvas.drawCircle(trackedPos.left,trackedPos.top,5,boxPaint);
+
+      // right,bottom = ymax,xmax
+//      canvas.drawCircle(trackedPos.right,trackedPos.bottom,5,boxPaint1);
+
+//
+//      DisplayMetrics displayMetrics = new DisplayMetrics();
+//      getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+//      int height = displayMetrics.heightPixels;
+//      int width = displayMetrics.widthPixels;
+
+
+      float bbarea= (float) (trackedPos.width() * trackedPos.height());
+      double threshold = 0.5;
+      float cameraarea=1080*710;
+      Log.d("bbarea", String.valueOf(bbarea/cameraarea));
+
+      if(bbarea/cameraarea >=threshold )
+      {
+        Log.d("Size","Greater");
+        isGreater=true;
+
+      }
+      else
+      {
+        isGreater=false;
+      }
+
+
+
+
+      canvas.drawLine(280,0,280,2160,boxPaint);
+      canvas.drawLine(800,0,800,2160,boxPaint);
+//      canvas.drawLine(0,1450,1080,1450,boxPaint);
+
+//      canvas.drawLine(810,0,810,2160,boxPaint);
+
+
+//      if(flag ==0){
+//        flag =1;
+
+        int leftrightcount=0;
+      int bbxmin= (int) trackedPos.left;
+      int bbymin= (int) trackedPos.top;
+      int bbxmax= (int) trackedPos.right;
+      int bbymax= (int) trackedPos.bottom;
+      int bbwidth= (int) trackedPos.width();
+      int bbheight= (int) trackedPos.height();
+      int canvawidth=640;
+      int canvaheight=480;
+
+      int left_xmin=0;
+      int left_xmax=280;//(screenwidth/3) +- 80
+      int right_xmin=800;
+      int right_xmax=1080;//screenwidth
+      int center_xmin=281;
+      int center_xmax=799;
+
+      boolean isxminleft=false;
+      boolean isxmincenter=false;
+      boolean isxminright=false;
+      boolean isxmaxleft=false;
+      boolean isxmaxcenter=false;
+      boolean isxmaxright=false;
+
+
+
+
+      if( (bbxmax+bbxmin)/2  < left_xmax )
+      {
+        Log.d("position123", "left");
+//          personCenter=false;
+      personLeft=true;
+      }
+      if((bbxmax+bbxmin)/2  >=  center_xmin && (bbxmax+bbxmin)/2   <= center_xmax)
+      {
+        Log.d("position123","center");
+        personCenter=true;
+
+      }
+        if((bbxmax+bbxmin)/2  >=  right_xmin && (bbxmax+bbxmin)/2   <= right_xmax)
+      {
+        Log.d("position123","right");
+        personRight=true;
+
+      }
+
+      if(recognition.title.equals("person") || recognition.title.equals("car") || recognition.title.equals("bus"))
+      {
+        if(personCenter && isGreater)
+        {
+          personcount++;
+          Log.d("pppp","personcenter"+personcount);
+          canvas.drawRoundRect(trackedPos, cornerSize, cornerSize, boxPaint);
+          personCenter=false;
+        }
+        if(personLeft || personRight && isGreater)
+        {
+//          if(!personCenter)
+//          {
+//            canvas.drawRoundRect(trackedPos, cornerSize, cornerSize, boxPaint);
+//          }
+          leftrightcount++;
+          canvas.drawRoundRect(trackedPos, cornerSize, cornerSize, boxPaint1);
+
+
+        }
+
+        personRight=false;
+        personLeft=false;
+
+
+      }
+//        ha.postDelayed(new Runnable() {
+//          @Override
+//          public void run() {
+//            flag = 0;
+//            //call function
+//            ha.postDelayed(this, 10000);
+//          }
+//        }, 10000);
+//
+//      }
+
+
+//      if(bbxmin > left_xmin && bbxmin < left_xmax)
+//      {
+//        if(bbxmax > left_xmax)
+//        {
+//          bbxmax=left_xmax;
+//        }
+//      }
+
+
+
+//      if(bbheight > 0.5*canvaheight)
+//      {
+//        Log.d("distance","warning warning");
+//      }
+//     else
+//      {
+//        Log.d("distance","no warning");
+//      }
+
+
+
+
+
 
       final String labelString =
           !TextUtils.isEmpty(recognition.title)
@@ -152,6 +315,7 @@ public class MultiBoxTracker {
       borderedText.drawText(
           canvas, trackedPos.left + cornerSize, trackedPos.top, labelString + "%", boxPaint);
     }
+
   }
 
   private void processResults(final List<Recognition> results) {

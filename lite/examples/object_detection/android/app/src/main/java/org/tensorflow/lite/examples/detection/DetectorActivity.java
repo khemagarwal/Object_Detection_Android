@@ -1,21 +1,8 @@
-/*
- * Copyright 2019 The TensorFlow Authors. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *       http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 
 package org.tensorflow.lite.examples.detection;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
@@ -26,13 +13,21 @@ import android.graphics.Paint.Style;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.media.ImageReader.OnImageAvailableListener;
+import android.os.Handler;
 import android.os.SystemClock;
+import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
 import android.widget.Toast;
+
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
+
 import org.tensorflow.lite.examples.detection.customview.OverlayView;
 import org.tensorflow.lite.examples.detection.customview.OverlayView.DrawCallback;
 import org.tensorflow.lite.examples.detection.env.BorderedText;
@@ -63,7 +58,8 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
   private static final float TEXT_SIZE_DIP = 10;
   OverlayView trackingOverlay;
   private Integer sensorOrientation;
-
+  public Integer flag = 0;
+  final Handler ha=new Handler();
   private Classifier detector;
 
   private long lastProcessingTimeMs;
@@ -180,7 +176,6 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
             final long startTime = SystemClock.uptimeMillis();
             final List<Classifier.Recognition> results = detector.recognizeImage(croppedBitmap);
             lastProcessingTimeMs = SystemClock.uptimeMillis() - startTime;
-
             cropCopyBitmap = Bitmap.createBitmap(croppedBitmap);
             final Canvas canvas = new Canvas(cropCopyBitmap);
             final Paint paint = new Paint();
@@ -202,19 +197,69 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
               final RectF location = result.getLocation();
               if (location != null && result.getConfidence() >= minimumConfidence) {
                 canvas.drawRect(location, paint);
-
                 cropToFrameTransform.mapRect(location);
-
                 result.setLocation(location);
                 mappedRecognitions.add(result);
+//                Log.d("mapped1",result.toString());
+//                Log.d("mapped1",mappedRecognitions.toString());
+//                String temp=mappedRecognitions.get(0).toString();
+//                String[] splitStr = temp.trim().split("\\s+");
+//
+//                String secondVar=splitStr[2];
+//                String[] splitStr2 = secondVar.trim().split("%+");
+
+//                String[] splitStr3 = splitStr2[0].trim().split("[(]+");
+//                Log.d("mapped1",splitStr[1]);
+//                Log.d("mapped1",splitStr3[1]);
               }
             }
+            if(flag ==0){
+              flag =1;
+//              Log.d("qwe","In every 10 Secs.");
+//              Log.d("qwe",mappedRecognitions.toString());
+              int x = mappedRecognitions.size();
+              int count = 0;
 
+              for(int i = 0; i<x;i++){
+                String a = mappedRecognitions.get(i).toString();
+                String[] splitStr = a.trim().split("\\s+");
+                if(splitStr[1].trim().equals("person")){
+                  count = count + 1;
+                }
+                Log.d("qwe", a);
+              }
+              Log.d("qwe", "Count: "+ count);
+
+              SharedPreferences sharedPref = getSharedPreferences("myKey", Context.MODE_PRIVATE);
+              SharedPreferences.Editor editor = sharedPref.edit();
+              editor.putInt("value", count);
+              editor.apply();
+
+//              SharedPreferences sharedPreferences = getSharedPreferences("myKey", MODE_PRIVATE);
+//              int value = sharedPreferences.getInt("value",0);
+//
+//                Log.d("pppp", String.valueOf(value));
+
+              ha.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                  flag = 0;
+                  //call function
+                  ha.postDelayed(this, 1000);
+                }
+              }, 1000);
+
+            }
+
+
+
+
+
+
+//            Log.d("mapped1",mappedRecognitions.toString());
             tracker.trackResults(mappedRecognitions, currTimestamp);
             trackingOverlay.postInvalidate();
-
             computingDetection = false;
-
             runOnUiThread(
                 new Runnable() {
                   @Override
@@ -224,8 +269,12 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
                     showInference(lastProcessingTimeMs + "ms");
                   }
                 });
+
+
           }
         });
+
+//
   }
 
   @Override
